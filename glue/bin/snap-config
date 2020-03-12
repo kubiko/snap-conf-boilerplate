@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# read openhab config
+CONFIG=${SNAP}/bin/configuration.json
+
+# function are optional and to be implemented by called, e.g. snap-help
+# handle_key_value:         process case when settings have no expected description/env/default keys,
+#                           used by "Process additonal configuration from snap settings in help
+# processing_top_key_start: called when top key processing starts
+# processing_top_key_end:   called when key handling is finished
+# set_config:               called to handle given key value
+
+process_line() {
+  # each line starts with key name and end variable
+  local key=$1
+  shift
+  # check if we have valid json in first place
+  if ! jq -e . >/dev/null 2>&1 <<<"$@"; then
+    type -p handle_key_value && handle_key_value ${key} $@ || true
+    return
+  fi
+  ENV=$(echo $@ | jq -r '.env')
+  # if we have env, no need to traverse further
+  if [ "${ENV}" == "null" ]; then
+      type -p processing_top_key_start && processing_top_key_start ${key} || true
+      while read line
+      do
+          process_line ${key}.${line}
+      done < <(echo $@ | jq -r 'keys[] as $k | "\($k) \(.[$k] )"')
+      type -p processing_top_key_end && processing_top_key_end ${key} || true
+  else
+      DESCRIPTION=$(echo $@ | jq -r '.description')
+      DEFAULT=$(echo $@ | jq -r '.default')
+      VALUE=$(snapctl get ${key})
+      type -p set_config && set_config "${key}" "${ENV}" "${VALUE}" "${DEFAULT}" "${DESCRIPTION}" || true
+  fi
+}
+
+
+read_snap_config() {
+    while read line
+    do
+        process_line $line
+    done < <(jq -r 'keys[] as $k | "\($k) \(.[$k] )"' ${CONFIG})
+}
+

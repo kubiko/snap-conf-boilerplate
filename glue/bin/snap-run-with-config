@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# callback function to process one configuration
+# set_config ${key} ${ENV} ${VALUE} ${DEFAULT} ${DESCRIPTION}
+set_config() {
+    local VAL=${3}
+    [ -z "${VAL}" ] && VAL=${4}
+    [ "${DEBUG}" = "1" ] && echo "${2}=${VAL}"
+    eval export ${2}=\"${VAL}\"
+}
+
+# read settings
+source ${SNAP}/bin/snap-config
+read_snap_config
+
+# run app
+exec "${DIRNAME}/runtime/bin/${@}"

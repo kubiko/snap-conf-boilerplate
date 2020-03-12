@@ -1,0 +1,24 @@
+#!/bin/bash
+
+hook_name=$(basename $0)
+
+set -x
+
+exec >> ${SNAP_DATA}/hooks.log 2>&1
+echo "$(date '+%Y-%m-%d %H:%M:%S'): Entering ${hook_name} hook"
+echo "SNAP_REVISION=${SNAP_REVISION}"
+
+# process changes if needed
+# set_config ${key} ${ENV} ${VALUE} ${DEFAULT} ${DESCRIPTION}
+set_config() {
+    local VAL=${3}
+    [ -z "${VAL}" ] && VAL=${4}
+    echo "${2}=${VAL}"
+    eval export ${2}=\"${VAL}\"
+}
+
+source ${SNAP}/bin/snap-config
+read_snap_config
+# settings were altered by user, safest way to get them applied is to restart service
+snapctl restart ${SNAP_INSTANCE_NAME} 2>&1 || true
+
